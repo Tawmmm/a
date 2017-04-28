@@ -93,6 +93,14 @@ class MusicPlayerState(Enum):
 
     def __str__(self):
         return self.name
+		
+class MusicPlayerRepeatState(Enum):
+    NONE = 0    # Playlist plays as normal
+    ALL = 1     # Entire playlist repeats
+    SINGLE = 2  # Currently playing song repeats
+
+    def __str__(self):
+        return self.name
 
 
 class MusicPlayer(EventEmitter, Serializable):
@@ -104,6 +112,8 @@ class MusicPlayer(EventEmitter, Serializable):
         self.playlist = playlist
         self.state = MusicPlayerState.STOPPED
         self.skip_state = None
+        self.repeatState = MusicPlayerRepeatState.NONE
+        self.skipRepeat = False
 
         self._volume = bot.config.default_volume
         self._play_lock = asyncio.Lock()
@@ -176,6 +186,12 @@ class MusicPlayer(EventEmitter, Serializable):
 
     def _playback_finished(self):
         entry = self._current_entry
+		
+        if self.is_repeatAll or (self.is_repeatSingle and not self.skipRepeat):
+            self.playlist._add_entry(entry)
+            if self.is_repeatSingle:            
+                self.playlist.promote_last()
+        self.skipRepeat = False
 
         if self._current_player:
             self._current_player.after = None
@@ -390,6 +406,18 @@ class MusicPlayer(EventEmitter, Serializable):
     @property
     def is_dead(self):
         return self.state == MusicPlayerState.DEAD
+
+    @property
+    def is_repeatAll(self):
+        return self.repeatState == MusicPlayerRepeatState.ALL
+		
+    @property
+    def is_repeatNone(self):
+        return self.repeatState == MusicPlayerRepeatState.NONE
+		
+    @property
+    def is_repeatSingle(self):
+        return self.repeatState == MusicPlayerRepeatState.SINGLE
 
     @property
     def progress(self):
